@@ -1,4 +1,4 @@
-name: Flutter Android Build
+name: Flutter Android Build -1 
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         api-level: [21, 29, 33]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,12 +21,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Setup Flutter (v3.29.2 - includes Dart 3.7.2+)
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.19.5'
+          flutter-version: '3.29.2'  # Matches your required Dart SDK
           cache: true
+
+      - name: Verify Flutter/Dart versions
+        run: |
+          flutter --version
+          dart --version
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -36,7 +41,6 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-${{ matrix.api-level }}"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "emulator"
 
       - name: Build APK
         run: |
