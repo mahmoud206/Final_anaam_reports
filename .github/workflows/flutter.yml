@@ -1,0 +1,48 @@
+name: Flutter Android Build
+
+# Only runs manually (via GitHub UI/API) or when explicitly triggered
+on:
+  workflow_dispatch:  # Enables "Run workflow" button in GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # Prevents stuck builds
+    strategy:
+      matrix:
+        api-level: [21, 29, 33]  # Android 5, 10, 13 (customize as needed)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.19.5'  # Pin to a specific version (optional)
+          cache: true  # Caches pub dependencies
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Platform Tools
+        run: |
+          echo "y" | sudo sdkmanager "platforms;android-${{ matrix.api-level }}"
+          echo "y" | sudo sdkmanager "build-tools;34.0.0"  # Latest stable
+
+      - name: Build APK (ARM64)
+        run: |
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-android-${{ matrix.api-level }}
+          path: build/app/outputs/flutter-apk/app-release.apk
