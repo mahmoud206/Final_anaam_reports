@@ -6,11 +6,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.vetra_anaam_report";
-    compileSdk = 33;
-    ndkVersion = "27.0.12077973";
-    namespace ="io.github.ponnamkarthik.toast";
+    namespace = "com.example.vetra_anaam_report"
+    compileSdk = 34 // Use only one definition
 
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -22,22 +21,20 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.vetra_anaam_report"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21;
-        targetSdk = 33;
-        compileSdk = 34;
-        versionCode =1;
-        versionName ="1.0";
+        minSdk = 21
+        targetSdk = 34 // Ensure it matches compileSdk
+        versionCode = 1
+        versionName = "1.0"
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // TODO: Configure a proper release signingConfig
+            // signingConfig = signingConfigs.getByName("release")
         }
     }
 }
