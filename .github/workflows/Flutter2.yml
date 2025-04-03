@@ -25,27 +25,28 @@ jobs:
             echo "::error::Original AndroidManifest.xml has syntax errors"
             exit 1
           fi
-
       - name: Update AndroidManifest.xml
         run: |
-          # Create new manifest with proper XML structure
-          echo '<?xml version="1.0" encoding="utf-8"?>' > android/app/src/main/AndroidManifest.xml.new
-          grep -v '<?xml' android/app/src/main/AndroidManifest.xml >> android/app/src/main/AndroidManifest.xml.new
+          cp android/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml.bak
           
-          # Insert V2 embedding meta-data
-          sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml.new
-          
-          # Replace original with new version
-          mv android/app/src/main/AndroidManifest.xml.new android/app/src/main/AndroidManifest.xml
+          # Add meta-data correctly inside <application> if it exists
+          if grep -q '<application' android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
+          else
+            echo "::error:: <application> tag not found in AndroidManifest.xml"
+            exit 1
+          fi
           
           # Validate the updated manifest
           if ! xmllint --noout android/app/src/main/AndroidManifest.xml; then
-            echo "::error::Updated AndroidManifest.xml has syntax errors"
+            echo "::error:: Updated AndroidManifest.xml has syntax errors"
+            mv android/app/src/main/AndroidManifest.xml.bak android/app/src/main/AndroidManifest.xml
             exit 1
           fi
-
+          
           echo "Updated AndroidManifest.xml:"
           xmllint --format android/app/src/main/AndroidManifest.xml
+
 
       - name: Update MainActivity
         run: |
