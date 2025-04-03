@@ -1,44 +1,60 @@
+import 'dart:io';
 import 'package:mongo_dart/mongo_dart.dart';
 
 class MongoService {
-  // Primary connection string with all shards explicitly listed
-  static const _baseConnectionString = 
-    'mongodb://vetinternational1968:mahmoud123456@'
-    'ivc-cluster-shard-00-00.2nmzm9h.mongodb.net:27017,'
-    'ivc-cluster-shard-00-01.2nmzm9h.mongodb.net:27017,'
-    'ivc-cluster-shard-00-02.2nmzm9h.mongodb.net:27017/'
-    '?ssl=true&replicaSet=atlas-b5q7qk-shard-0'
-    '&authSource=admin&retryWrites=true&w=majority';
+  // Database configurations
+  static  Map<String, String> _databaseConfigs = {
+    'Elanam-KhamisMushit': _buildConnectionString(),
+    'Elanam-Zapia': _buildConnectionString(),
+    'Elanam-Baish': _buildConnectionString(),
+  };
+
+  static String _buildConnectionString() {
+    return 'mongodb://vetinternational1968:mahmoud123456@'
+        'ivc-cluster-shard-00-00.2nmzm9h.mongodb.net:27017,'
+        'ivc-cluster-shard-00-01.2nmzm9h.mongodb.net:27017,'
+        'ivc-cluster-shard-00-02.2nmzm9h.mongodb.net:27017/'
+        '?ssl=true&replicaSet=atlas-b5q7qk-shard-0'
+        '&authSource=admin&retryWrites=true&w=majority';
+  }
 
   late Db _db;
+  String? _currentDbName;
   bool _isConnected = false;
 
   Future<void> connect(String dbName) async {
+    if (_isConnected && _currentDbName == dbName) {
+      return; // Already connected
+    }
+
+    await close(); // Close existing connection
+
     try {
-      final connectionUri = '$_baseConnectionString$dbName';
-      
-      _db = Db(connectionUri);
-      
-      // Configure connection settings
-      _db.connectionTimeout = 30; // 30 seconds timeout
-      _db.queryTimeout = 15; // 15 seconds for queries
-      
+      if (!_databaseConfigs.containsKey(dbName)) {
+        throw Exception('Database "$dbName" not configured');
+      }
+
+      final connectionUri = '${_databaseConfigs[dbName]}$dbName';
+      _db = await Db.create(connectionUri);
+
+      // Set timeout using connection pool settings
+      await _db.open().timeout(const Duration(seconds: 30));
+
       await _db.open().then((_) {
         _isConnected = true;
-        print('Successfully connected to MongoDB');
+        _currentDbName = dbName;
+        print('Connected to $dbName');
       });
-
     } on SocketException catch (e) {
-      throw Exception('Network error: Failed to connect to MongoDB. Please check your internet connection.\n$e');
-    } on MongoDartError catch (e) {
-      throw Exception('MongoDB error: ${e.message}');
+      throw Exception('Network error: ${e.message}');
     } catch (e) {
-      throw Exception('Failed to connect: $e');
+      throw Exception('Connection failed: $e');
     }
   }
 
+  // All your data methods remain exactly the same
   Future<List<Map<String, dynamic>>> getInventoryData() async {
-    _checkConnection();
+    _verifyConnection();
     try {
       final collection = _db.collection('Inventory');
       return await collection.aggregateToStream([
@@ -64,7 +80,7 @@ class MongoService {
   }
 
   Future<List<Map<String, dynamic>>> getSalesData(DateTime startDate, DateTime endDate) async {
-    _checkConnection();
+    _verifyConnection();
     try {
       final collection = _db.collection('Sale');
       return await collection.find({
@@ -74,14 +90,14 @@ class MongoService {
         }
       }).toList();
     } catch (e) {
-      throw Exception('Failed to fetch sales data: $e');
+      throw Exception('Failed to fetch sales: $e');
     }
   }
 
   Future<List<Map<String, dynamic>>> getServicesData(DateTime startDate, DateTime endDate) async {
-    _checkConnection();
+    _verifyConnection();
     try {
-      final collection = _db.collection('Service'); // Changed from 'Sale' to 'Service'
+      final collection = _db.collection('Service');
       return await collection.find({
         'createdAt': {
           '\$gte': startDate,
@@ -89,12 +105,12 @@ class MongoService {
         }
       }).toList();
     } catch (e) {
-      throw Exception('Failed to fetch services data: $e');
+      throw Exception('Failed to fetch services: $e');
     }
   }
 
   Future<List<Map<String, dynamic>>> getPaymentData(DateTime startDate, DateTime endDate) async {
-    _checkConnection();
+    _verifyConnection();
     try {
       final collection = _db.collection('Payment');
       return await collection.find({
@@ -104,7 +120,7 @@ class MongoService {
         }
       }).toList();
     } catch (e) {
-      throw Exception('Failed to fetch payment data: $e');
+      throw Exception('Failed to fetch payments: $e');
     }
   }
 
@@ -112,12 +128,17 @@ class MongoService {
     if (_isConnected) {
       await _db.close();
       _isConnected = false;
+      _currentDbName = null;
     }
   }
 
-  void _checkConnection() {
+  void _verifyConnection() {
     if (!_isConnected) {
-      throw Exception('Not connected to MongoDB. Call connect() first.');
+      throw Exception('No active connection. Call connect() first.');
     }
+  }
+
+  static List<String> getAvailableDatabases() {
+    return _databaseConfigs.keys.toList();
   }
 }
