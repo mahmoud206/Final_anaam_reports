@@ -1,101 +1,31 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:open_file/open_file.dart';
 import 'package:intl/intl.dart';
-import 'package:vetra_anaam_report/models/report_data.dart';
+import 'package:inventory_app/models/report_data.dart';
+import 'package:inventory_app/utils/date_utils.dart';
 
 class PdfService {
   Future<File> generateSalesReport(
-      List<SalesData> salesData,
-      String databaseName,
-      DateTimeRange dateRange,
-      ) async {
+    List<SalesData> salesData,
+    String databaseName,
+    DateTimeRange dateRange,
+  ) async {
     final pdf = pw.Document();
 
     // Add a page with header and table
     pdf.addPage(
       pw.Page(
+        pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
           return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               _buildHeader(databaseName, 'Sales Report', dateRange),
               pw.SizedBox(height: 20),
-              pw.Table(
-                border: pw.TableBorder.all(),
-                children: [
-                  // Header row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Product', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Qty', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Price', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Profit', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Total', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Total Profit', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  // Data rows
-                  for (var sale in salesData)
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('yyyy-MM-dd').format(sale.date)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.productName),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.quantity.toString()),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.price.toStringAsFixed(2)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.profit.toStringAsFixed(2)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.total.toStringAsFixed(2)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(sale.totalProfit.toStringAsFixed(2)),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
+              _buildSalesTable(salesData),
               pw.SizedBox(height: 20),
               _buildSalesSummary(salesData),
             ],
@@ -108,76 +38,22 @@ class PdfService {
   }
 
   Future<File> generateServicesReport(
-      List<ServiceData> servicesData,
-      String databaseName,
-      DateTimeRange dateRange,
-      ) async {
+    List<ServiceData> servicesData,
+    String databaseName,
+    DateTimeRange dateRange,
+  ) async {
     final pdf = pw.Document();
 
     pdf.addPage(
       pw.Page(
+        pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
           return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               _buildHeader(databaseName, 'Services Report', dateRange),
               pw.SizedBox(height: 20),
-              pw.Table(
-                border: pw.TableBorder.all(),
-                children: [
-                  // Header row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Service', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Qty', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Price', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Total', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  // Data rows
-                  for (var service in servicesData)
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('yyyy-MM-dd').format(service.date)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(service.serviceName),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(service.quantity.toString()),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(service.price.toStringAsFixed(2)),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(service.total.toStringAsFixed(2)),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
+              _buildServicesTable(servicesData),
               pw.SizedBox(height: 20),
               _buildServicesSummary(servicesData),
             ],
@@ -190,10 +66,10 @@ class PdfService {
   }
 
   Future<File> generatePaymentReport(
-      List<PaymentData> paymentData,
-      String databaseName,
-      DateTimeRange dateRange,
-      ) async {
+    List<PaymentData> paymentData,
+    String databaseName,
+    DateTimeRange dateRange,
+  ) async {
     final pdf = pw.Document();
 
     // Group payment data by method and direction
@@ -211,71 +87,38 @@ class PdfService {
         .toList();
 
     // Add a page for each section
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            children: [
-              _buildHeader(databaseName, 'Payment Report - Outgoing شبكة', dateRange),
-              pw.SizedBox(height: 20),
-              _buildPaymentTable(shabkaOutgoing),
-              pw.SizedBox(height: 20),
-              _buildPaymentSummary(shabkaOutgoing, 'Total Outgoing شبكة'),
-            ],
-          );
-        },
-      ),
-    );
-
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            children: [
-              _buildHeader(databaseName, 'Payment Report - Incoming شبكة', dateRange),
-              pw.SizedBox(height: 20),
-              _buildPaymentTable(shabkaIncoming),
-              pw.SizedBox(height: 20),
-              _buildPaymentSummary(shabkaIncoming, 'Total Incoming شبكة'),
-            ],
-          );
-        },
-      ),
-    );
-
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            children: [
-              _buildHeader(databaseName, 'Payment Report - Outgoing نقدي', dateRange),
-              pw.SizedBox(height: 20),
-              _buildPaymentTable(naqdiOutgoing),
-              pw.SizedBox(height: 20),
-              _buildPaymentSummary(naqdiOutgoing, 'Total Outgoing نقدي'),
-            ],
-          );
-        },
-      ),
-    );
-
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            children: [
-              _buildHeader(databaseName, 'Payment Report - Incoming نقدي', dateRange),
-              pw.SizedBox(height: 20),
-              _buildPaymentTable(naqdiIncoming),
-              pw.SizedBox(height: 20),
-              _buildPaymentSummary(naqdiIncoming, 'Total Incoming نقدي'),
-            ],
-          );
-        },
-      ),
-    );
+    _addPaymentPage(pdf, databaseName, dateRange, shabkaOutgoing, 'Outgoing شبكة');
+    _addPaymentPage(pdf, databaseName, dateRange, shabkaIncoming, 'Incoming شبكة');
+    _addPaymentPage(pdf, databaseName, dateRange, naqdiOutgoing, 'Outgoing نقدي');
+    _addPaymentPage(pdf, databaseName, dateRange, naqdiIncoming, 'Incoming نقدي');
 
     return _saveDocument(pdf, 'payment_report_${_formatDateRange(dateRange)}.pdf');
+  }
+
+  void _addPaymentPage(
+    pw.Document pdf,
+    String databaseName,
+    DateTimeRange dateRange,
+    List<PaymentData> payments,
+    String title,
+  ) {
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeader(databaseName, 'Payment Report - $title', dateRange),
+              pw.SizedBox(height: 20),
+              _buildPaymentTable(payments),
+              pw.SizedBox(height: 20),
+              _buildPaymentSummary(payments, 'Total $title'),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   pw.Widget _buildHeader(String databaseName, String title, DateTimeRange dateRange) {
@@ -284,11 +127,17 @@ class PdfService {
       children: [
         pw.Text(
           databaseName,
-          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(
+            fontSize: 18,
+            fontWeight: pw.FontWeight.bold,
+          ),
         ),
         pw.Text(
           title,
-          style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+          style: pw.TextStyle(
+            fontSize: 22,
+            fontWeight: pw.FontWeight.bold,
+          ),
         ),
         pw.Text(
           'Date Range: ${DateFormat('yyyy-MM-dd').format(dateRange.start)} to ${DateFormat('yyyy-MM-dd').format(dateRange.end)}',
@@ -302,47 +151,27 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildPaymentTable(List<PaymentData> paymentData) {
-    return pw.Table(
+  pw.Widget _buildSalesTable(List<SalesData> salesData) {
+    return pw.Table.fromTextArray(
+      context: null,
       border: pw.TableBorder.all(),
-      children: [
-        // Header row
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Description', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-            ),
-          ],
-        ),
-        // Data rows
-        for (var payment in paymentData)
-          pw.TableRow(
-            children: [
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(DateFormat('yyyy-MM-dd').format(payment.date)),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(payment.amount.toStringAsFixed(2)),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(payment.description),
-              ),
-            ],
-          ),
-      ],
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        color: PdfColors.white,
+      ),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.blue700),
+      headers: ['Date', 'Product', 'Qty', 'Price', 'Profit', 'Total', 'Total Profit'],
+      data: salesData.map((sale) => [
+        DateFormat('yyyy-MM-dd').format(sale.date),
+        sale.productName,
+        sale.quantity.toString(),
+        _formatCurrency(sale.price),
+        _formatCurrency(sale.profit),
+        _formatCurrency(sale.total),
+        _formatCurrency(sale.totalProfit),
+      ]).toList(),
+      cellAlignment: pw.Alignment.centerLeft,
+      cellStyle: const pw.TextStyle(fontSize: 10),
     );
   }
 
@@ -354,14 +183,42 @@ class PdfService {
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
         pw.Text(
-          'Total Sales: ${totalSales.toStringAsFixed(2)}',
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          'Total Sales: ${_formatCurrency(totalSales)}',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
         pw.Text(
-          'Total Profit: ${totalProfit.toStringAsFixed(2)}',
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          'Total Profit: ${_formatCurrency(totalProfit)}',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
       ],
+    );
+  }
+
+  pw.Widget _buildServicesTable(List<ServiceData> servicesData) {
+    return pw.Table.fromTextArray(
+      context: null,
+      border: pw.TableBorder.all(),
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        color: PdfColors.white,
+      ),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.green700),
+      headers: ['Date', 'Service', 'Qty', 'Price', 'Total'],
+      data: servicesData.map((service) => [
+        DateFormat('yyyy-MM-dd').format(service.date),
+        service.serviceName,
+        service.quantity.toString(),
+        _formatCurrency(service.price),
+        _formatCurrency(service.total),
+      ]).toList(),
+      cellAlignment: pw.Alignment.centerLeft,
+      cellStyle: const pw.TextStyle(fontSize: 10),
     );
   }
 
@@ -372,10 +229,33 @@ class PdfService {
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
         pw.Text(
-          'Total Revenue: ${totalRevenue.toStringAsFixed(2)}',
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          'Total Revenue: ${_formatCurrency(totalRevenue)}',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
       ],
+    );
+  }
+
+  pw.Widget _buildPaymentTable(List<PaymentData> paymentData) {
+    return pw.Table.fromTextArray(
+      context: null,
+      border: pw.TableBorder.all(),
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        color: PdfColors.white,
+      ),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.purple700),
+      headers: ['Date', 'Amount', 'Description'],
+      data: paymentData.map((payment) => [
+        DateFormat('yyyy-MM-dd').format(payment.date),
+        _formatCurrency(payment.amount),
+        payment.description,
+      ]).toList(),
+      cellAlignment: pw.Alignment.centerLeft,
+      cellStyle: const pw.TextStyle(fontSize: 10),
     );
   }
 
@@ -386,11 +266,21 @@ class PdfService {
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
         pw.Text(
-          '$title: ${totalAmount.toStringAsFixed(2)}',
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          '$title: ${_formatCurrency(totalAmount)}',
+          style: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 12,
+          ),
         ),
       ],
     );
+  }
+
+  String _formatCurrency(double amount) {
+    return NumberFormat.currency(
+      symbol: '\$',
+      decimalDigits: 2,
+    ).format(amount);
   }
 
   Future<File> _saveDocument(pw.Document document, String fileName) async {

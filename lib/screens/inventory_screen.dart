@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:vetra_anaam_report/models/database.dart';
-import 'package:vetra_anaam_report/models/inventory_item.dart';
-import 'package:vetra_anaam_report/services/pdf_service.dart';
-import 'package:vetra_anaam_report/services/report_service.dart';
-import 'package:vetra_anaam_report/utils/date_utils.dart';
-import 'package:vetra_anaam_report/widgets/custome_data_table.dart';
+import 'package:inventory_app/models/database.dart';
+import 'package:inventory_app/models/inventory_item.dart';
+import 'package:inventory_app/models/report_data.dart';
+import 'package:inventory_app/services/mongo_service.dart';
+import 'package:inventory_app/services/pdf_service.dart';
+import 'package:inventory_app/utils/date_utils.dart';
+import 'package:inventory_app/widgets/custom_data_table.dart';
 
 class InventoryScreen extends StatefulWidget {
   final Database database;
@@ -19,45 +20,54 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   List<InventoryItem> inventoryItems = [];
   bool isLoading = false;
-  final ReportService _reportService = ReportService();
+  final MongoService _mongoService = MongoService();
   final PdfService _pdfService = PdfService();
 
   @override
   void initState() {
     super.initState();
-    loadData();
+    _connectAndLoadData();
   }
 
-  Future<void> loadData() async {
+  Future<void> _connectAndLoadData() async {
     setState(() => isLoading = true);
+    try {
+      await _mongoService.connect(widget.database.name);
+      final data = await _mongoService.getInventoryData();
+      
+      setState(() {
+        inventoryItems = data.map((item) {
+          final expiryDates = (item['expiryDates'] as List).cast<DateTime>();
+          final nearestDate = expiryDates.reduce((a, b) => a.isBefore(b) ? a : b);
+          
+          return InventoryItem(
+            productName: item['productName'],
+            remainingQuantity: item['remainingQuantity'],
+            nearestExpiryDate: nearestDate,
+            note: _generateNote(expiryDates, nearestDate),
+          );
+        }).toList();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: $e')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    // Mock data
-    setState(() {
-      inventoryItems = [
-        InventoryItem(
-          productName: "Product A",
-          remainingQuantity: 10,
-          nearestExpiryDate: DateTime.now().add(const Duration(days: 30)),
-          note: "",
-        ),
-        InventoryItem(
-          productName: "Product B",
-          remainingQuantity: 3,
-          nearestExpiryDate: DateTime.now().add(const Duration(days: 60)),
-          note: "Other expiry dates: 2 on 2023-12-01",
-        ),
-        InventoryItem(
-          productName: "Product C",
-          remainingQuantity: 15,
-          nearestExpiryDate: DateTime.now().add(const Duration(days: 90)),
-          note: "",
-        ),
-      ];
-      isLoading = false;
-    });
+  String _generateNote(List<DateTime> expiryDates, DateTime nearestDate) {
+    final otherDates = expiryDates.where((date) => date != nearestDate).toList();
+    if (otherDates.isEmpty) return '';
+    
+    final dateCounts = <DateTime, int>{};
+    for (final date in otherDates) {
+      dateCounts[date] = (dateCounts[date] ?? 0) + 1;
+    }
+    
+    return 'Other expiry dates: ' + 
+      dateCounts.entries.map((e) => '${e.value} on ${DateFormat('yyyy-MM-dd').format(e.key)}').join(', ');
   }
 
   Future<void> generateSalesReport() async {
@@ -65,23 +75,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (dateRange == null) return;
 
     setState(() => isLoading = true);
-
+    
     try {
-      // Get sales data (mock implementation)
-      final salesData = await _reportService.getSalesData(
-        widget.database.name,
+      final salesData = await _mongoService.getSalesData(
         dateRange.start,
         dateRange.end,
       );
 
-      // Generate PDF
+      // Process sales data
+      final List<SalesData> processedSales = [];
+      for (final sale in salesData) {
+        final items = sale['items'] as List? ?? [];
+        for (final item in items) {
+          processedSales.add(SalesData(
+            date: sale['createdAt'],
+            productName: item['productName'],
+            quantity: item['quantity'],
+            price: item['pricePerUnit']?.toDouble() ?? 0.0,
+            profit: item['profit']?.toDouble() ?? 0.0,
+          ));
+        }
+      }
+
       final pdfFile = await _pdfService.generateSalesReport(
-        salesData,
+        processedSales,
         widget.database.name,
         dateRange,
       );
 
-      // Open the PDF
       await _pdfService.openPdf(pdfFile);
 
       if (!mounted) return;
@@ -91,7 +112,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating report: $e')),
+        SnackBar(content: Text('Error generating sales report: $e')),
       );
     } finally {
       setState(() => isLoading = false);
@@ -103,23 +124,33 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (dateRange == null) return;
 
     setState(() => isLoading = true);
-
+    
     try {
-      // Get services data (mock implementation)
-      final servicesData = await _reportService.getServicesData(
-        widget.database.name,
+      final servicesData = await _mongoService.getServicesData(
         dateRange.start,
         dateRange.end,
       );
 
-      // Generate PDF
+      // Process services data
+      final List<ServiceData> processedServices = [];
+      for (final sale in servicesData) {
+        final services = sale['services'] as List? ?? [];
+        for (final service in services) {
+          processedServices.add(ServiceData(
+            date: sale['createdAt'],
+            serviceName: service['serviceName'],
+            quantity: service['quantity'],
+            price: service['price']?.toDouble() ?? 0.0,
+          ));
+        }
+      }
+
       final pdfFile = await _pdfService.generateServicesReport(
-        servicesData,
+        processedServices,
         widget.database.name,
         dateRange,
       );
 
-      // Open the PDF
       await _pdfService.openPdf(pdfFile);
 
       if (!mounted) return;
@@ -129,7 +160,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating report: $e')),
+        SnackBar(content: Text('Error generating services report: $e')),
       );
     } finally {
       setState(() => isLoading = false);
@@ -141,23 +172,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (dateRange == null) return;
 
     setState(() => isLoading = true);
-
+    
     try {
-      // Get payment data (mock implementation)
-      final paymentData = await _reportService.getPaymentData(
-        widget.database.name,
+      final paymentData = await _mongoService.getPaymentData(
         dateRange.start,
         dateRange.end,
       );
 
-      // Generate PDF
+      // Process payment data
+      final List<PaymentData> processedPayments = paymentData.map((payment) {
+        return PaymentData(
+          date: payment['paidAt'],
+          method: payment['method'],
+          isOutgoing: payment['isOutgoing'],
+          amount: payment['amount']?.toDouble() ?? 0.0,
+          description: payment['description'],
+        );
+      }).toList();
+
       final pdfFile = await _pdfService.generatePaymentReport(
-        paymentData,
+        processedPayments,
         widget.database.name,
         dateRange,
       );
 
-      // Open the PDF
       await _pdfService.openPdf(pdfFile);
 
       if (!mounted) return;
@@ -167,11 +205,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating report: $e')),
+        SnackBar(content: Text('Error generating payment report: $e')),
       );
     } finally {
       setState(() => isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _mongoService.close();
+    super.dispose();
   }
 
   @override
@@ -180,6 +224,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
       appBar: AppBar(
         title: Text('${widget.database.symbol} ${widget.database.name} Inventory'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _connectAndLoadData,
+            tooltip: 'Refresh Data',
+          ),
           IconButton(
             icon: const Icon(Icons.swap_horiz),
             onPressed: () => Navigator.pop(context),
@@ -190,50 +239,45 @@ class _InventoryScreenState extends State<InventoryScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                ElevatedButton(
-                  onPressed: loadData,
-                  child: const Text('Refresh Data'),
+                if (inventoryItems.isEmpty)
+                  const Expanded(
+                    child: Center(
+                      child: Text('No inventory data available'),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: CustomDataTable(
+                      inventoryItems: inventoryItems,
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.bar_chart),
+                        label: const Text('Sales Report'),
+                        onPressed: generateSalesReport,
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.show_chart),
+                        label: const Text('Services Report'),
+                        onPressed: generateServicesReport,
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.monetization_on),
+                        label: const Text('Payment Report'),
+                        onPressed: generatePaymentReport,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: CustomDataTable(
-              inventoryItems: inventoryItems,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.bar_chart),
-                  label: const Text('Sales Report'),
-                  onPressed: generateSalesReport,
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.show_chart),
-                  label: const Text('Services Report'),
-                  onPressed: generateServicesReport,
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.monetization_on),
-                  label: const Text('Payment Report'),
-                  onPressed: generatePaymentReport,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
