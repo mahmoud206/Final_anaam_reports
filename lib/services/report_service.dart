@@ -1,4 +1,4 @@
-import 'package:inventory_app/services/mongo_service.dart';
+import 'package:vetra_anaam_report/services/mongo_service.dart';
 
 class ReportService {
   final MongoService _mongoService = MongoService();

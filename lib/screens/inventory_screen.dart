@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:inventory_app/models/database.dart';
-import 'package:inventory_app/models/inventory_item.dart';
-import 'package:inventory_app/models/report_data.dart';
-import 'package:inventory_app/services/mongo_service.dart';
-import 'package:inventory_app/services/pdf_service.dart';
-import 'package:inventory_app/utils/date_utils.dart';
-import 'package:inventory_app/widgets/custom_data_table.dart';
+import 'package:vetra_anaam_report/models/database.dart';
+import 'package:vetra_anaam_report/models/inventory_item.dart';
+import 'package:vetra_anaam_report/models/report_data.dart';
+import 'package:vetra_anaam_report/services/mongo_service.dart';
+import 'package:vetra_anaam_report/services/pdf_service.dart';
+import 'package:vetra_anaam_report/utils/date_utils.dart';
+import 'package:vetra_anaam_report/widgets/custome_data_table.dart';
 
 class InventoryScreen extends StatefulWidget {
   final Database database;
