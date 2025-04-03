@@ -31,9 +31,6 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;34.0.0" "platform-tools"
 
       # Fixed clean step
-      - name: Clean project
-        working-directory: ./android
-        run: ./gradlew clean
 
       - name: Flutter clean
         run: flutter clean
