@@ -1,4 +1,4 @@
-name: Flutter Android Build -3 
+name: Flutter Android Build -4
 
 on:
   workflow_dispatch:
@@ -20,41 +20,36 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Setup Flutter
+      - name: Setup Flutter (v3.29.2 - includes Dart 3.7.2+)
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.29.2'
+          flutter-version: '3.29.2'  # Matches your required Dart SDK
           cache: true
 
-      - name: Disable Flutter analytics
-        run: flutter config --no-analytics
+      - name: Verify Flutter/Dart versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Android Tools
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-${{ matrix.api-level }}"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "cmake;3.22.1"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.1.8937393"  # Specific NDK version
-
-      - name: Patch FlutterToast build.gradle
-        run: |
-          sed -i "s/android {/android {\n    namespace 'com.example.fluttertoast'/g" $HOME/.pub-cache/hosted/pub.dev/fluttertoast-*/android/build.gradle
 
       - name: Build APK
         run: |
           flutter pub get
-          flutter build apk --release --target-platform android-arm64 \
-            --build-name=1.0.0 \
-            --build-number=${{ github.run_number }} \
-            --no-sound-null-safety
+          flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: vetra-anaam-android-${{ matrix.api-level }}
+          name: app-android-${{ matrix.api-level }}
           path: build/app/outputs/flutter-apk/app-release.apk
+
