@@ -1,4 +1,4 @@
-name: Flutter Android Build -8
+name: Flutter Android Build -9 
 
 on:
   workflow_dispatch: # Manual trigger only
@@ -16,9 +16,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate AndroidManifest.xml
+        run: |
+          sudo apt-get install -y libxml2-utils
+          if ! xmllint --noout android/app/src/main/AndroidManifest.xml; then
+            echo "::error::AndroidManifest.xml has syntax errors"
+            exit 1
+          fi
+
       - name: Force V2 Embedding Migration
         run: |
-          # Update AndroidManifest.xml
+          # Backup original manifest
+          cp android/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml.bak
+          
+          # Update AndroidManifest.xml with proper XML structure
+          sed -i '1i <?xml version="1.0" encoding="utf-8"?>' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
           
           # Update MainActivity
@@ -26,7 +38,7 @@ jobs:
           
           # Verify changes
           echo "Updated AndroidManifest.xml:"
-          grep "flutterEmbedding" android/app/src/main/AndroidManifest.xml
+          xmllint --format android/app/src/main/AndroidManifest.xml
           echo "Updated MainActivity:"
           find android/app/src/main/kotlin -name 'MainActivity.kt' -exec grep "FlutterActivity" {} \;
 
@@ -43,18 +55,26 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Resolve dependencies
+        run: |
+          flutter pub cache repair
+          flutter pub outdated
+          flutter pub upgrade --major-versions
+          flutter pub get
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           build-tools-version: "34.0.0"
           platform-version: "34"
+          ndk-version: "25.2.9519653"
 
       - name: Build Release APK
         run: |
-          flutter pub get
           flutter build apk --release \
             --target-platform ${{ env.TARGET_PLATFORM }} \
             --dart-define=FLUTTER_BUILD_MODE=release \
+            --no-sound-null-safety \
             --verbose
 
       - name: Upload APK artifact
@@ -62,3 +82,4 @@ jobs:
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
