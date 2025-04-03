@@ -1,4 +1,4 @@
-name: Flutter Android Build -5
+name: Flutter Android Build -6
 
 on:
   workflow_dispatch:
@@ -7,13 +7,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      matrix:
-        api-level: [21, 29, 33]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -24,46 +20,29 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
           flutter-version: '3.29.2'
           cache: true
-
-      - name: Verify Flutter/Dart versions
-        run: |
-          flutter --version
-          dart --version
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android Tools
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-${{ matrix.api-level }}"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "extras;android;m2repository"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "extras;google;m2repository"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;34.0.0" "platform-tools"
 
+      # Fixed clean step
       - name: Clean project
-        run: |
-            flutter clean
-            cd android && ./gradlew clean
+        working-directory: ./android
+        run: ./gradlew clean
 
-      - name: Resolve dependencies
-        run: |
-          flutter pub cache repair
-          flutter pub outdated
-          flutter pub upgrade --major-versions
-          flutter pub get
+      - name: Flutter clean
+        run: flutter clean
 
       - name: Build APK
-        run: |
-          flutter build apk --release --target-platform android-arm64 \
-            --dart-define=FLUTTER_BUILD_MODE=release \
-            --no-sound-null-safety
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-android-${{ matrix.api-level }}
+          name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
