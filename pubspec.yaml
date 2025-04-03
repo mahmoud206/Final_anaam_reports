@@ -12,22 +12,22 @@ dependencies:
     sdk: flutter
 
   # Core Functionality
-  mongo_dart: 0.10.4  # Pinned version for stability
-  pdf: 3.11.3        # Pinned version
-  intl: 0.20.2       # Pinned version
+  mongo_dart: ^0.10.4  # Pinned version for stability
+  pdf: ^3.1.0          # Pinned version3.11.3        # Pinned version
+  intl: ^0.20.2       # Pinned version
 
   # File Operations
-  path_provider: 2.1.5
-  open_file: 3.5.10
+  path_provider: ^2.1.5
+  open_file: ^3.5.10
 
   # UI/UX
-  syncfusion_flutter_datepicker: 29.1.35
-  fluttertoast: 8.2.2
+  syncfusion_flutter_datepicker: ^29.1.35
+  fluttertoast: ^8.2.12
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: 2.0.1  # Pinned linter version
+  flutter_lints: ^5.0.0  # Pinned linter version
 
 flutter:
   uses-material-design: true
