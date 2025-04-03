@@ -9,6 +9,8 @@ android {
     namespace = "com.example.vetra_anaam_report";
     compileSdk = 33;
     ndkVersion = "27.0.12077973";
+    namespace ="io.github.ponnamkarthik.toast";
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
