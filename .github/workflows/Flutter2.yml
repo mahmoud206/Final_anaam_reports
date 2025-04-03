@@ -1,4 +1,4 @@
-name: Flutter Android Build -8
+name: Flutter Android Build - final
 
 on:
   workflow_dispatch: # Manual trigger only
@@ -16,17 +16,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Force V2 Embedding Migration
+      - name: Install XML tools
+        run: sudo apt-get install -y libxml2-utils
+
+      - name: Validate original AndroidManifest.xml
         run: |
-          # Update AndroidManifest.xml
-          sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
+          if ! xmllint --noout android/app/src/main/AndroidManifest.xml; then
+            echo "::error::Original AndroidManifest.xml has syntax errors"
+            exit 1
+          fi
+      - name: Update AndroidManifest.xml
+        run: |
+          cp android/app/src/main/AndroidManifest.xml android/app/src/main/AndroidManifest.xml.bak
           
-          # Update MainActivity
-          find android/app/src/main/kotlin -name 'MainActivity.kt' -exec sed -i 's/extends.*Activity/extends FlutterActivity/' {} \;
+          # Add meta-data correctly inside <application> if it exists
+          if grep -q '<application' android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
+          else
+            echo "::error:: <application> tag not found in AndroidManifest.xml"
+            exit 1
+          fi
           
-          # Verify changes
+          # Validate the updated manifest
+          if ! xmllint --noout android/app/src/main/AndroidManifest.xml; then
+            echo "::error:: Updated AndroidManifest.xml has syntax errors"
+            mv android/app/src/main/AndroidManifest.xml.bak android/app/src/main/AndroidManifest.xml
+            exit 1
+          fi
+          
           echo "Updated AndroidManifest.xml:"
-          grep "flutterEmbedding" android/app/src/main/AndroidManifest.xml
+          xmllint --format android/app/src/main/AndroidManifest.xml
+
+
+      - name: Update MainActivity
+        run: |
+          find android/app/src/main/kotlin -name 'MainActivity.kt' -exec sed -i 's/extends.*Activity/extends FlutterActivity/' {} \;
           echo "Updated MainActivity:"
           find android/app/src/main/kotlin -name 'MainActivity.kt' -exec grep "FlutterActivity" {} \;
 
