@@ -1,4 +1,4 @@
-name: Flutter Android Build -2
+name: Flutter Android Build -3 
 
 on:
   workflow_dispatch:
@@ -29,6 +29,9 @@ jobs:
           flutter-version: '3.29.2'
           cache: true
 
+      - name: Disable Flutter analytics
+        run: flutter config --no-analytics
+
       - name: Install Android Tools
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
@@ -36,13 +39,19 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "cmake;3.22.1"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.1.8937393"  # Specific NDK version
+
+      - name: Patch FlutterToast build.gradle
+        run: |
+          sed -i "s/android {/android {\n    namespace 'com.example.fluttertoast'/g" $HOME/.pub-cache/hosted/pub.dev/fluttertoast-*/android/build.gradle
 
       - name: Build APK
         run: |
           flutter pub get
           flutter build apk --release --target-platform android-arm64 \
             --build-name=1.0.0 \
-            --build-number=${{ github.run_number }}
+            --build-number=${{ github.run_number }} \
+            --no-sound-null-safety
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
