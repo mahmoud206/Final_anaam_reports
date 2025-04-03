@@ -1,0 +1,54 @@
+name: Flutter Android Build -1 
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        api-level: [21, 29, 33]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter (v3.29.2 - includes Dart 3.7.2+)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.29.2'  # Matches your required Dart SDK
+          cache: true
+
+      - name: Verify Flutter/Dart versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Tools
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-${{ matrix.api-level }}"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+
+      - name: Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-android-${{ matrix.api-level }}
+          path: build/app/outputs/flutter-apk/app-release.apk
